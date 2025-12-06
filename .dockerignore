@@ -6,6 +6,7 @@ __pycache__/
 # Ignore les environnements virtuels
 venv/
 env/
+.env
 
 # Ignore les fichiers liés à Docker (build cache, etc.)
 .docker/

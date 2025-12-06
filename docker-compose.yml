@@ -1,5 +1,5 @@
 services:
-  discord-bot:
+  discord-bot-spam:
     build: .
     container_name: silence
     restart: unless-stopped

@@ -12,6 +12,7 @@ __pycache__/
 # Ignore les fichiers liés aux dépendances locales ou aux environnements virtuels
 venv/
 env
+.env
 
 
 # Ignore les fichiers de logs

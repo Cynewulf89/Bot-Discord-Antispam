@@ -4,8 +4,7 @@ FROM python:3.11-slim
 # Définir le répertoire de travail   
 WORKDIR /app 
 
-# Copier les fichiers   
-COPY . /app
+# Copier les requirements d'abord pour tirer parti du cache Docker
 COPY requirements.txt ./
 
 # Installer les dépendances 
@@ -17,6 +16,9 @@ RUN apt-get update && \
     apt-get clean && \ 
     apt-get autoremove -y && \ 
     rm -rf /var/lib/apt/lists/* 
+
+# Copier le reste des fichiers (y compris .env)
+COPY . /app 
 
 # Lancer l’application  
 CMD ["python", "app/silence.py"]
