@@ -25,5 +25,5 @@ env
 *~
 # VS Code & environment-specific files
 .vscode/
-.python-version
+
 .venv/
