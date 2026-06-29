@@ -1,7 +1,8 @@
 services:
   discord-bot-spam:
     build: .
-    container_name: silence
+    image: discord-bot-spam:latest
+    container_name: discord-bot-spam
     restart: unless-stopped
     env_file:
       - .env
