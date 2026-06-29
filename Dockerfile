@@ -21,4 +21,4 @@ RUN apt-get update && \
 COPY . /app 
 
 # Lancer l’application  
-CMD ["python", "src/bot_discord_antispam/main.py"]
+CMD ["python", "src/bot_discord_antispam/silence.py"]
