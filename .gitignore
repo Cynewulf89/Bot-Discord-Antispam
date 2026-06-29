@@ -23,3 +23,7 @@ env
 
 # Ignore les fichiers de sauvegarde de l'éditeur
 *~
+# VS Code & environment-specific files
+.vscode/
+.python-version
+.venv/
