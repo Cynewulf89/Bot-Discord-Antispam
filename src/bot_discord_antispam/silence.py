@@ -82,29 +82,57 @@ async def on_message(message):
     content = message.content.lower().strip()
     channel_id = message.channel.id
 
+    # Extraction des empreintes de fichiers/images joints (nom, taille)
+    attachment_signatures = tuple(sorted((att.filename, att.size) for att in message.attachments))
+    has_attachments = len(attachment_signatures) > 0
+
     # Ajouter le message à l'historique
-    user_messages[message.author.id].append((content, now, message, channel_id))
+    user_messages[message.author.id].append((content, attachment_signatures, now, message, channel_id))
 
     # Créer une copie filtrée des messages dans les 5 dernières minutes
     recent_messages = [
-        (msg, timestamp, msg_obj, chan_id)
-        for msg, timestamp, msg_obj, chan_id in user_messages[message.author.id]
+        (msg, atts, timestamp, msg_obj, chan_id)
+        for msg, atts, timestamp, msg_obj, chan_id in user_messages[message.author.id]
         if now - timestamp <= 300
     ]
 
-    # ✅ CORRECTION : Détecter le spam (3 messages IDENTIQUES dans les 5 dernières minutes)
-    identical_messages = [(msg, timestamp, msg_obj, chan_id) for msg, timestamp, msg_obj, chan_id in recent_messages if msg == content and msg.strip() != "" and now - timestamp <= 300]
-    should_mute = False
+    # Détecter les répétitions identiques (texte identique non vide OU images/pièces jointes identiques)
+    identical_text_messages = []
+    if content:
+        identical_text_messages = [
+            (msg, atts, timestamp, msg_obj, chan_id)
+            for msg, atts, timestamp, msg_obj, chan_id in recent_messages
+            if msg == content and now - timestamp <= 300
+        ]
 
-    if not has_apprenti:
-        # Utilisateur normal : 3 messages identiques dans les 5 minutes suffisent
-        if len(identical_messages) >= 3:
+    identical_attachment_messages = []
+    if has_attachments:
+        identical_attachment_messages = [
+            (msg, atts, timestamp, msg_obj, chan_id)
+            for msg, atts, timestamp, msg_obj, chan_id in recent_messages
+            if atts == attachment_signatures and now - timestamp <= 300
+        ]
+
+    # Sélectionner les messages incriminés prioritaires
+    spam_type = None
+    spam_messages = []
+    if len(identical_attachment_messages) >= 3:
+        spam_type = "image"
+        spam_messages = identical_attachment_messages
+    elif len(identical_text_messages) >= 3:
+        spam_type = "texte"
+        spam_messages = identical_text_messages
+
+    should_mute = False
+    if spam_messages:
+        if not has_apprenti:
+            # Utilisateur normal : 3 répétitions dans les 5 minutes suffisent
             should_mute = True
-    else:
-        # Apprenti : 3 messages identiques ET dans au moins 2 canaux différents (dans les 5 min)
-        unique_channels = {chan_id for msg, _, _, chan_id in identical_messages}
-        if len(identical_messages) >= 3 and len(unique_channels) >= 2:
-            should_mute = True
+        else:
+            # Apprenti : 3 répétitions ET dans au moins 2 canaux différents
+            unique_channels = {chan_id for _, _, _, _, chan_id in spam_messages}
+            if len(unique_channels) >= 2:
+                should_mute = True
 
     if should_mute and member.id not in reported_users:
         reported_users.add(member.id)
@@ -116,7 +144,7 @@ async def on_message(message):
             except Exception:
                 return
 
-        # ✅ CORRECTION : Sauvegarder les rôles actuels (hors @everyone ET hors Silence)
+        # Sauvegarder les rôles actuels (hors @everyone ET hors Silence)
         roles_to_save = [role for role in member.roles if role != guild.default_role and role.name != MUTE_ROLE_NAME]
         muted_users_roles[member.id] = roles_to_save
         
@@ -124,7 +152,7 @@ async def on_message(message):
             # Retirer tous les rôles sauf @everyone
             await member.remove_roles(*roles_to_save, reason="Mute pour spam")
             await member.add_roles(mute_role, reason="Spam détecté")
-            print(f"Ban (mute): {member.name} a été mute pour spam.", flush=True)
+            print(f"Ban (mute): {member.name} a été mute pour spam ({spam_type}).", flush=True)
         except Exception:
             return
 
@@ -139,23 +167,27 @@ async def on_message(message):
         if log_channel:
             channels_info = ""
             if has_apprenti:
-                unique_channels = {chan_id for msg, _, _, chan_id in identical_messages}
+                unique_channels = {chan_id for _, _, _, _, chan_id in spam_messages}
                 channels_info = f"\nCanaux concernés: {len(unique_channels)}"
+
+            if spam_type == "image":
+                filenames = ", ".join(att.filename for att in message.attachments)
+                details = f"Images/fichiers répétés: `{filenames}`"
+            else:
+                details = f"Message répété: `{content}`"
             
             await log_channel.send(
                 f" {member.mention} a été mute pour spam !{channels_info}\n\n"
-                f"Message répété: `{content}`\n"
-                f"Nombre de répétitions: {len(identical_messages)} (dans les 5 dernières minutes)\n\n"
+                f"{details}\n"
+                f"Nombre de répétitions: {len(spam_messages)} (dans les 5 dernières minutes)\n\n"
                 f"Tapez `!Silence {member.mention}` pour lui redonner ses rôles."
             )
 
-        # 🧹 Supprimer SEULEMENT les messages identiques des 5 dernières minutes
-        deleted_count = 0
-        for msg, timestamp, msg_obj, _ in identical_messages:
+        # Supprimer les messages incriminés des 5 dernières minutes
+        for _, _, _, msg_obj, _ in spam_messages:
             try:
                 await msg_obj.delete()
-                deleted_count += 1
-            except Exception as e:
+            except Exception:
                 pass
 
     # Nettoyage de l'historique (garde uniquement les 5 dernières minutes)
@@ -214,7 +246,7 @@ async def debug_user(ctx, member: discord.Member):
     has_staff = discord.utils.get(member.roles, name=STAFF_ROLE_NAME) is not None
     has_apprenti = discord.utils.get(member.roles, name="Apprenti") is not None
     
-    recent_count = len([msg for msg, timestamp, _, _ in user_messages[member.id] if time.time() - timestamp <= 300])
+    recent_count = len([msg for msg, atts, timestamp, _, _ in user_messages[member.id] if time.time() - timestamp <= 300])
     
     embed = discord.Embed(title=f"Debug: {member.display_name}", color=0x00ff00)
     embed.add_field(name="Rôles", value=f"Staff: {has_staff}\nApprenti: {has_apprenti}", inline=False)

@@ -79,13 +79,19 @@ Facile à configurer, fonctionne en quelques minutes.
 
 🚀 Fonctionnement du bot
 
-Lorsque 3 messages identiques sont envoyés en moins d'une minute :
+Le bot surveille l'activité dans une fenêtre glissante de 5 minutes :
 
-- L'utilisateur est mute automatiquement (rôle "Silence")
-- Tous ses rôles sont retirés
-- Ses messages sont supprimés (5 dernières minutes)
-- Un message de log est posté dans le canal défini avec un ping du rôle mentionné
-- Le message contient aussi la commande pour le unmute : !Silence @utilisateur
+- **Détection de spam** :
+  - **Messages texte** : 3 messages identiques envoyés dans les 5 minutes.
+  - **Images / Fichiers** : 3 messages envoyés contenant les mêmes images ou fichiers joints (même nom et même taille).
+  - **Rôle "Apprenti"** : le spam n'est sanctionné que si les 3 répétitions (texte ou images) sont envoyées à travers au moins 2 salons différents.
+  - **Staff / Admin** : ignorés par la détection.
+
+- **Actions automatiques** :
+  - L'utilisateur est mute avec le rôle configuré (par défaut `"Silence"`).
+  - Ses rôles actuels sont sauvegardés puis temporairement retirés.
+  - Les messages incriminés (texte ou images) des 5 dernières minutes sont supprimés.
+  - Une alerte détaillée est postée dans le canal de logs avec le motif (texte ou fichiers) et la commande de dé-mute : `!Silence @utilisateur`.
 
 ---
 
