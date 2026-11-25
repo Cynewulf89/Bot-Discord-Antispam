@@ -62,9 +62,9 @@ Facile à configurer, fonctionne en quelques minutes.
     git clone https://gitlab.com/Cynewulf89/bot-antispam-discord.git
     cd bot-antispam-discord
 
-2. Installer les dépendances
+2. Installer les dépendances (Python 3.13 géré par uv)
 
-    pip install -r requirements.txt
+    uv sync
 
 3. Créer un fichier `.env`
 
@@ -74,6 +74,10 @@ Facile à configurer, fonctionne en quelques minutes.
 
     - LOG_CHANNEL_ID : clic droit sur un salon → "Copier l’identifiant"
     - MENTION_ID : clic droit sur un rôle → "Copier l’identifiant"
+
+4. Lancer le bot en local
+
+    uv run python src/bot_discord_antispam/silence.py
 
 ---
 
@@ -101,7 +105,9 @@ Le bot surveille l'activité dans une fenêtre glissante de 5 minutes :
     sudo docker build -t silence .
 
 2. Lancer le conteneur en arrière-plan :
-    sudo docker run -d --name silence silence
+    sudo docker run -d --name silence --env-file .env silence
+
+Le `.env` n'est pas copié dans l'image (exclu par `.dockerignore`) : il doit être fourni à l'exécution, via `--env-file .env` ou `env_file` dans `docker-compose.yml`.
 
 ---
 

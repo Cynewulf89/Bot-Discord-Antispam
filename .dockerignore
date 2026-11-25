@@ -19,3 +19,5 @@ env/
 
 # Ignore les fichiers de sauvegarde
 *~
+.venv/
+.git
